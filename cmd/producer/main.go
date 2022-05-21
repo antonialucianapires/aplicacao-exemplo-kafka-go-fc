@@ -12,7 +12,7 @@ func main() {
 
 	producer := NewKafkaProducer()
 
-	Publish("ola gogo!", "gokafka", producer, nil, deliveryChannel)
+	Publish("pagamento realizado com sucesso", "gokafka", producer, []byte("pagamento"), deliveryChannel)
 	go DeliveryReport(deliveryChannel)
 
 	producer.Flush(1000)
