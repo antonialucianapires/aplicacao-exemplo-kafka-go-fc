@@ -8,10 +8,23 @@ import (
 
 
 func main() {
+	deliveryChannel := make(chan kafka.Event)
+
 	producer := NewKafkaProducer()
-	Publish("ola gogo!", "gokafka", producer, nil)
-	producer.Flush(1000) //O Flush espera um retorno ou um tempo de milisegundos para encerrar o main
-	fmt.Println("Mensagem enviada!")
+	Publish("ola gogo!", "gokafka", producer, nil, deliveryChannel)
+
+	e := <-deliveryChannel
+	msg := e.(*kafka.Message)
+
+	// Recupera o retorno do envio da mensagem de forma síncrona
+	if msg.TopicPartition.Error != nil {
+		fmt.Println("Erro ao enviar mensagem")
+	} else {
+		fmt.Println("Mensagem enviada: ", msg.TopicPartition)
+	}
+
+	producer.Flush(1000)
+	
 }
 
 func NewKafkaProducer() *kafka.Producer {
@@ -29,13 +42,13 @@ func NewKafkaProducer() *kafka.Producer {
 
 }
 
-func Publish(msg string, topic string, producer *kafka.Producer, key []byte) error {
+func Publish(msg string, topic string, producer *kafka.Producer, key []byte, deliveryChannel chan kafka.Event) error {
 	message := &kafka.Message{
 		Value:          []byte(msg),
 		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
 		Key:            key,
 	}
-	err := producer.Produce(message, nil)
+	err := producer.Produce(message, deliveryChannel)
 	if err != nil {
 		return err
 	}
