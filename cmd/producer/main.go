@@ -11,17 +11,9 @@ func main() {
 	deliveryChannel := make(chan kafka.Event)
 
 	producer := NewKafkaProducer()
+
 	Publish("ola gogo!", "gokafka", producer, nil, deliveryChannel)
-
-	e := <-deliveryChannel
-	msg := e.(*kafka.Message)
-
-	// Recupera o retorno do envio da mensagem de forma síncrona
-	if msg.TopicPartition.Error != nil {
-		fmt.Println("Erro ao enviar mensagem")
-	} else {
-		fmt.Println("Mensagem enviada: ", msg.TopicPartition)
-	}
+	go DeliveryReport(deliveryChannel)
 
 	producer.Flush(1000)
 	
@@ -30,6 +22,9 @@ func main() {
 func NewKafkaProducer() *kafka.Producer {
 	configMap := &kafka.ConfigMap {
 		"bootstrap.servers": "aplicacao-exemplo-kafka-go-fc-kafka-1:9092",
+		"delivery.timeout.ms": "0", //tempo máximo de entrega de uma mensagem
+		"acks": "all", //o acks ALL possui um tempo maior de processamento, ou seja, afeta a performance. Porém, confirma que o broker leader e seus followers receberam  a mensagem
+		"enable.idempotence": "true", //garante que a memsagem será enviada uma vez e não haverá duplicidade - afeta a performance
 	}
 
 	p, err := kafka.NewProducer(configMap)
@@ -53,4 +48,19 @@ func Publish(msg string, topic string, producer *kafka.Producer, key []byte, del
 		return err
 	}
 	return nil
+}
+
+func DeliveryReport(deliveryChannel chan kafka.Event) {
+	for e := range deliveryChannel {
+		switch ev := e.(type) {
+		case *kafka.Message:
+
+			if ev.TopicPartition.Error != nil {
+				fmt.Println("Erro ao enviar mensagem")
+			} else {
+				fmt.Println("Mensagem enviada: ", ev.TopicPartition)
+			}
+			
+		}
+	}
 }
